@@ -56,7 +56,7 @@ if prompt and api_key:
         # 最新稳定代理（今天可用）
         client = OpenAI(
             api_key=api_key,
-            base_url="https://api.oaiproxy.vip/v1"
+            base_url="https://dataanalysisgbi.cn-beijing.aliyuncs.com"
         )
 
         st.session_state.messages.append({"role": "user", "content": prompt})
