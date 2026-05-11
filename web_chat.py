@@ -1,15 +1,36 @@
 import streamlit as st
 import requests
 import json
+import datetime
 
-# 页面配置
+# —————— 页面配置 ——————
 st.set_page_config(page_title="AI聊天助手", layout="wide")
 
-# 初始化聊天
+# —————— 自定义聊天框颜色 ——————
+st.markdown("""
+<style>
+/* 用户消息框样式 */
+.chat-message.user {
+    background-color: #E3F2FD;
+    border-radius: 15px;
+    padding: 10px 15px;
+    margin: 5px 0;
+}
+/* AI回复消息框样式 */
+.chat-message.assistant {
+    background-color: #F5F5F5;
+    border-radius: 15px;
+    padding: 10px 15px;
+    margin: 5px 0;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# —————— 初始化聊天 ——————
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 侧边栏
+# —————— 侧边栏 ——————
 with st.sidebar:
     st.title("⚙️ 设置")
     api_key = st.text_input("输入阿里云百炼 API Key", type="password")
@@ -26,7 +47,21 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-# 人设提示词
+    st.markdown("---")
+    # 导出聊天记录（补回来）
+    if st.button("📥 导出聊天记录"):
+        if len(st.session_state.messages) > 0:
+            content = ""
+            for msg in st.session_state.messages:
+                content += f"[{msg['role']}]\n{msg['content']}\n\n"
+            st.download_button(
+                label="点击保存记录",
+                data=content,
+                file_name=f"聊天_{datetime.datetime.now():%Y%m%d_%H%M%S}.txt",
+                mime="text/plain"
+            )
+
+# —————— 人设 ——————
 def get_system_prompt(p):
     prompts = {
         "专业老师": "你是耐心专业的老师，清晰解答问题。",
@@ -38,47 +73,38 @@ def get_system_prompt(p):
     }
     return prompts.get(p, "你是贴心AI助手。")
 
-# 聊天界面
+# —————— 聊天界面 ——————
 st.title(f"🤖 AI助手 - {personality}")
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 输入框
+# —————— 输入框 ——————
 prompt = st.chat_input("输入消息...")
 
 if prompt and api_key:
     try:
-        # 阿里云百炼的API地址（兼容通义千问）
         url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
 
-        # 构建请求数据
         system_prompt = get_system_prompt(personality)
         messages = [
             {"role": "system", "content": system_prompt}
         ] + st.session_state.messages + [{"role": "user", "content": prompt}]
 
         data = {
-            "model": "qwen-turbo",  # 通义千问的模型名
-            "input": {
-                "messages": messages
-            },
-            "parameters": {
-                "result_format": "message"
-            }
+            "model": "qwen-turbo",
+            "input": {"messages": messages},
+            "parameters": {"result_format": "message"}
         }
 
-        # 发送请求
         response = requests.post(url, headers=headers, data=json.dumps(data))
-        response.raise_for_status()  # 检查请求是否成功
+        response.raise_for_status()
         result = response.json()
-
-        # 获取回复
         reply = result["output"]["choices"][0]["message"]["content"]
 
         # 显示消息
